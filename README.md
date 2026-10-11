@@ -65,6 +65,53 @@ Launch the dashboard:
 streamlit run dashboard/app.py
 ```
 
+## Centralized crop-yield regression
+
+The centralized prediction task is **regression**: it estimates the continuous
+`yield_kg_per_hectare` target from 38 processed tabular features. The frozen
+processed splits contain 350 training rows, 75 validation rows, and 75 test
+rows. The test split is held out for final evaluation; candidate selection in
+`src/ml/train_lstm.py` uses validation MAE (RMSE breaks ties), then fits the
+selected model using train plus validation data.
+
+```bash
+python -m pip install -r requirements.txt
+python src/ml/train_lstm.py
+python scripts/predict_yield.py
+```
+
+The training script compares the saved legacy one-timestep `LSTM(64) →
+Dense(32) → Dense(1)` with a regularized 38-value feed-forward Keras MLP and
+tabular baselines. A row of unrelated features is not a temporal sequence.
+For the checked-in processed split, the training-mean baseline was selected
+because it had the best validation MAE; the feature-target relationships were
+too weak for the neural and tree candidates to generalize. The original
+`build_lstm_model()` remains unchanged as the model factory used by federated
+clients and weight aggregation. See [the model results](docs/ml/model_results.md)
+for measured metrics and diagnostic limitations.
+
+The saved selected model and metadata live in `models/lstm/`. The final test
+evaluation uses all 75 rows and writes:
+
+- `results/predictions_actual_vs_predicted.csv` — sample, actual, predicted,
+  signed error, and absolute error for every test row.
+- `results/model_metrics.json` — validation model comparisons and final MAE,
+  RMSE, R², and prediction/actual distribution summaries.
+- `results/actual_vs_predicted.png` and `results/prediction_scatter.png` —
+  test-set plots; the scatter includes the ideal `y = x` line.
+
+MAE and RMSE are measured in kg/hectare. R² is computed as the standard
+coefficient of determination by scikit-learn; it is not classification
+accuracy. No project-specific accuracy formula or reference to 63.66% exists
+in the repository history and documentation, so no custom accuracy percentage
+is reported. R² = 1.0 denotes perfect predictions and is reported only if
+achieved from the held-out labels and predictions.
+
+To reproduce with the compatible TensorFlow stack, Python 3.10–3.12 is
+supported by TensorFlow 2.16.1. The frozen split CSVs and fitted preprocessor
+are local data artifacts ignored by Git; place them in `data/processed/`
+before running the commands above.
+
 Run tests:
 
 ```bash

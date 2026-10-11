@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .env
 .venv/
+.venv_predict/
+.runtime_packages/
+.tmp/
 venv/
 *.egg-info/
 .ipynb_checkpoints/
@@ -13,4 +16,8 @@ data/client_data/*/*
 !data/**/.gitkeep
 results/**/*
 !results/**/.gitkeep
+!results/model_metrics.json
+!results/predictions_actual_vs_predicted.csv
+!results/actual_vs_predicted.png
+!results/prediction_scatter.png
 .DS_Store

@@ -1,34 +1,35 @@
-# LSTM Model Architecture
+# Centralized and federated model architecture
 
-## Purpose
+## Centralized crop-yield prediction
 
-The LSTM model is used for crop-yield prediction as a regression task. The target variable is `yield_kg_per_hectare`.
+The centralized dataset has 38 processed tabular features and no genuine
+ordered sequence dimension. The historical one-timestep model consumes a row
+as `(batch, 1, 38)`; this is retained as a comparator but does not learn
+temporal dependencies.
 
-## Input
-
-- Number of processed features: 38
-- Input shape: `(1, 38)`
-- One sample is represented as one timestep containing 38 features.
-
-## Architecture
+The candidate neural model treats each row as a feature vector:
 
 ```text
-Input
-(1 timestep, 38 features)
-        ↓
-LSTM(64)
-        ↓
-Dense(32, ReLU)
-        ↓
-Dense(1)
-        ↓
-Predicted Crop Yield
-## Interface Contract
+Input (38)
+Dense(64, ReLU, L2=0.001)
+Dropout(0.15)
+Dense(32, ReLU, L2=0.001)
+Dense(1, linear)
+```
 
-- Input shape: `(batch_size, 1, 38)`
-- Output shape: `(batch_size, 1)`
-- Input: 38 processed features represented as one timestep
-- Output: continuous `yield_kg_per_hectare`
-- Task: Regression
+The target is standardized using training targets during validation selection.
+After selection, the model and target scaler are refit on training plus
+validation rows. The validation split selects between this model and the
+classical baselines. Final test metrics use every held-out test row once.
 
-The dataset does not contain genuine multi-timestep sequences. Therefore, this implementation is treated as a single-timestep LSTM experiment and does not claim to learn temporal dependencies.
+## Federated learning
+
+`build_lstm_model(input_features=38)` retains its existing
+`LSTM(64) -> Dense(32, ReLU) -> Dense(1)` architecture and `(batch, 1, 38)`
+input contract. `src/clients/local_training.py`, FedAvg, and encrypted update
+serialization continue using the same model weights and layer shapes. The
+centralized vector MLP is a separate factory and does not change FL model
+aggregation or client training.
+
+See `src/ml/train_lstm.py` for model comparison and `src/ml/model_interface.py`
+for centralized inference.
