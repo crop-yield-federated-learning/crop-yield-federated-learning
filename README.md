@@ -83,12 +83,14 @@ python scripts/predict_yield.py
 The training script compares the saved legacy one-timestep `LSTM(64) →
 Dense(32) → Dense(1)` with a regularized 38-value feed-forward Keras MLP and
 tabular baselines. A row of unrelated features is not a temporal sequence.
-For the checked-in processed split, the training-mean baseline was selected
-because it had the best validation MAE; the feature-target relationships were
-too weak for the neural and tree candidates to generalize. The original
-`build_lstm_model()` remains unchanged as the model factory used by federated
-clients and weight aggregation. See [the model results](docs/ml/model_results.md)
-for measured metrics and diagnostic limitations.
+On the available runtime, a shallow `GradientBoostingRegressor` (40 stages,
+depth 3, Huber loss) was selected by validation MAE and refit on train plus
+validation rows. It achieves test MAE 1088.96 kg/ha, RMSE 1206.27 kg/ha and
+R² 0.0154 over all 75 held-out samples. This is a small improvement over the
+mean predictor, not a high-accuracy forecaster. The original
+`build_lstm_model()` remains unchanged for federated clients and weight
+aggregation. See [the model results](docs/ml/model_results.md) for metrics
+and limitations.
 
 The saved selected model and metadata live in `models/lstm/`. The final test
 evaluation uses all 75 rows and writes:
@@ -102,15 +104,17 @@ evaluation uses all 75 rows and writes:
 
 MAE and RMSE are measured in kg/hectare. R² is computed as the standard
 coefficient of determination by scikit-learn; it is not classification
-accuracy. No project-specific accuracy formula or reference to 63.66% exists
-in the repository history and documentation, so no custom accuracy percentage
-is reported. R² = 1.0 denotes perfect predictions and is reported only if
-achieved from the held-out labels and predictions.
+accuracy. No project-specific formula or source for the requested 63.66% was
+found in the repository or its history, so no custom accuracy percentage is
+reported. R² = 1.0 denotes perfect predictions and is reported only if
+achieved from held-out labels and predictions. Neither target was achieved.
 
-To reproduce with the compatible TensorFlow stack, Python 3.10–3.12 is
-supported by TensorFlow 2.16.1. The frozen split CSVs and fitted preprocessor
-are local data artifacts ignored by Git; place them in `data/processed/`
-before running the commands above.
+The federated LSTM and Keras candidates require a working TensorFlow 2.16.1
+runtime. If TensorFlow's native runtime cannot load, training reports the
+reason and continues with the tabular candidates; it does not retrain the
+LSTM/MLP comparison in that fallback. The frozen split CSVs and fitted
+preprocessor are local data artifacts ignored by Git; place them in
+`data/processed/` before running the commands above.
 
 Run tests:
 

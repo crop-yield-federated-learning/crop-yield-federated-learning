@@ -4,6 +4,7 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -38,7 +39,17 @@ def load_model():
 
 def predict(model, features):
     """Predict yield from one or more rows of the 38 processed features."""
-    values = np.asarray(features, dtype=np.float32)
+    feature_names = list(model["feature_names"])
+    if len(feature_names) != 38:
+        raise ValueError(f"Saved model expects {len(feature_names)} features; expected 38.")
+    if isinstance(features, pd.DataFrame):
+        if list(features.columns) != feature_names:
+            raise ValueError("Input feature columns/order do not match the saved model.")
+        values = features.to_numpy(dtype=np.float32)
+        estimator_input = features
+    else:
+        values = np.asarray(features, dtype=np.float32)
+        estimator_input = None
     if values.ndim == 1:
         if values.size != 38:
             raise ValueError("Expected exactly 38 input features for one sample.")
@@ -50,4 +61,6 @@ def predict(model, features):
     if model["kind"] == "keras_mlp":
         scaled_predictions = model["estimator"].predict(values, verbose=0).reshape(-1, 1)
         return model["target_scaler"].inverse_transform(scaled_predictions).reshape(-1)
-    return np.asarray(model["estimator"].predict(values)).reshape(-1)
+    if estimator_input is None:
+        estimator_input = pd.DataFrame(values, columns=feature_names)
+    return np.asarray(model["estimator"].predict(estimator_input)).reshape(-1)

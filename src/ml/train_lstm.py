@@ -16,7 +16,6 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 import joblib
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 import sklearn
 from sklearn.base import clone
 from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor, HistGradientBoostingRegressor, GradientBoostingRegressor
@@ -32,7 +31,18 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.ml.lstm_model import build_lstm_model, build_tabular_mlp_model
+try:
+    import tensorflow as tf
+    from src.ml.lstm_model import build_lstm_model, build_tabular_mlp_model
+    TENSORFLOW_IMPORT_ERROR = None
+except (ImportError, OSError) as exc:
+    # TensorFlow includes native runtime DLLs on Windows. Keep classical
+    # regression and inference workflows usable when that optional runtime is
+    # unavailable; the FL LSTM implementation itself is unchanged.
+    tf = None
+    build_lstm_model = None
+    build_tabular_mlp_model = None
+    TENSORFLOW_IMPORT_ERROR = str(exc)
 
 
 DATA_DIR = ROOT / "data" / "processed"
@@ -81,6 +91,7 @@ def build_candidates():
         "ExtraTrees_leaf1": ExtraTreesRegressor(n_estimators=500, max_features=1.0, min_samples_leaf=1, random_state=SEED, n_jobs=-1),
         "ExtraTrees_leaf3": ExtraTreesRegressor(n_estimators=500, max_features=0.8, min_samples_leaf=3, random_state=SEED, n_jobs=-1),
         "GradientBoosting": GradientBoostingRegressor(n_estimators=150, learning_rate=0.03, max_depth=2, loss="huber", random_state=SEED),
+        "GradientBoosting_small_depth3": GradientBoostingRegressor(n_estimators=40, learning_rate=0.03, max_depth=3, loss="huber", random_state=SEED),
         "HistGradientBoosting": HistGradientBoostingRegressor(max_iter=150, learning_rate=0.05, l2_regularization=1.0, max_leaf_nodes=7, random_state=SEED),
         "RBF_SVR": make_pipeline(StandardScaler(), SVR(C=100, epsilon=0.1, gamma="scale")),
         "KNN": make_pipeline(StandardScaler(), KNeighborsRegressor(n_neighbors=8, weights="distance", p=2)),
@@ -95,6 +106,8 @@ def build_candidates():
 
 def train_dense_model(X_train, y_train, X_val, y_val, final=False):
     """Fit a regularized vector MLP with train-only target scaling."""
+    if tf is None:
+        raise RuntimeError("TensorFlow is unavailable; cannot train the optional Keras MLP.")
     target_scaler = StandardScaler().fit(np.asarray(y_train).reshape(-1, 1))
     scaled_train = target_scaler.transform(np.asarray(y_train).reshape(-1, 1)).reshape(-1)
     scaled_val = None if final else target_scaler.transform(np.asarray(y_val).reshape(-1, 1)).reshape(-1)
@@ -124,6 +137,8 @@ def predict_dense(model, scaler, X):
 
 def legacy_validation_prediction(X_train, y_train, X_val):
     """Evaluate saved legacy weights when readable, else retrain that architecture."""
+    if tf is None:
+        raise RuntimeError("TensorFlow is unavailable; cannot evaluate the legacy LSTM.")
     current = build_lstm_model(input_features=38)
     label = "Current_LSTM_architecture_retrained"
     if OLD_MODEL_PATH.exists():
@@ -147,7 +162,8 @@ def legacy_validation_prediction(X_train, y_train, X_val):
 
 
 def main():
-    tf.keras.utils.set_random_seed(SEED)
+    if tf is not None:
+        tf.keras.utils.set_random_seed(SEED)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     X, y = load_splits()
@@ -180,15 +196,27 @@ def main():
 
     validation_results = {}
     fitted = {}
-    current_name, old_pred = legacy_validation_prediction(X["train"], y["train"], X["val"])
-    validation_results[current_name] = metrics(y["val"], old_pred)
-    print(f"{current_name} validation:", validation_results[current_name])
+    if tf is not None:
+        current_name, old_pred = legacy_validation_prediction(X["train"], y["train"], X["val"])
+        validation_results[current_name] = metrics(y["val"], old_pred)
+        print(f"{current_name} validation:", validation_results[current_name])
 
-    dense_model, dense_scaler = train_dense_model(X["train"], y["train"], X["val"], y["val"])
-    dense_pred = predict_dense(dense_model, dense_scaler, X["val"])
-    validation_results["Dense_MLP_Keras"] = metrics(y["val"], dense_pred)
-    fitted["Dense_MLP_Keras"] = (dense_model, dense_scaler)
-    print("Dense_MLP_Keras validation:", validation_results["Dense_MLP_Keras"])
+        dense_model, dense_scaler = train_dense_model(X["train"], y["train"], X["val"], y["val"])
+        dense_pred = predict_dense(dense_model, dense_scaler, X["val"])
+        validation_results["Dense_MLP_Keras"] = metrics(y["val"], dense_pred)
+        fitted["Dense_MLP_Keras"] = (dense_model, dense_scaler)
+        print("Dense_MLP_Keras validation:", validation_results["Dense_MLP_Keras"])
+    else:
+        print(f"TensorFlow is unavailable; skipping LSTM/MLP comparison: {TENSORFLOW_IMPORT_ERROR}")
+        # Preserve the previously measured validation comparison as historical
+        # context, clearly tagged as not rerun by this invocation.
+        previous_metrics_path = RESULTS_DIR / "model_metrics.json"
+        if previous_metrics_path.exists():
+            previous_report = json.loads(previous_metrics_path.read_text(encoding="utf-8"))
+            previous_validation = previous_report.get("validation_model_metrics", {})
+            for old_name in ("Current_saved_LSTM", "Current_LSTM_architecture_retrained"):
+                if old_name in previous_validation:
+                    validation_results[f"{old_name}_previous_run"] = previous_validation[old_name]
 
     for name, estimator in build_candidates().items():
         estimator.fit(X["train"], y["train"])
@@ -197,7 +225,7 @@ def main():
         fitted[name] = estimator
         print(f"{name} validation: MAE={validation_results[name]['MAE']:.3f}, RMSE={validation_results[name]['RMSE']:.3f}, R2={validation_results[name]['R2']:.4f}")
 
-    eligible = {name: m for name, m in validation_results.items() if name not in {"Current_saved_LSTM", "Current_LSTM_architecture_retrained"}}
+    eligible = {name: m for name, m in validation_results.items() if not name.startswith(("Current_saved_LSTM", "Current_LSTM_architecture_retrained"))}
     selected_name = min(eligible, key=lambda name: (eligible[name]["MAE"], eligible[name]["RMSE"]))
     print(f"Selected by validation MAE: {selected_name}")
 
@@ -231,16 +259,32 @@ def main():
         "feature_names": list(X["train"].columns),
         "validation_selection_metric": "MAE (tie-break by RMSE)",
         "selected_model": selected_name,
+        "selected_model_parameters": (
+            final_model.get_params(deep=False)
+            if hasattr(final_model, "get_params")
+            else {"architecture": "regularized tabular Keras MLP"}
+        ),
         "model_path": str(model_path.relative_to(ROOT)).replace("\\", "/"),
         "train_samples": int(len(X["train"])),
         "validation_samples": int(len(X["val"])),
         "test_samples": int(len(X["test"])),
         "validation_model_metrics": validation_results,
+        "validation_comparison_note": (
+            "LSTM/MLP metrics are freshly evaluated in this run."
+            if tf is not None
+            else "TensorFlow native runtime unavailable; any *_previous_run LSTM metric is retained for context only and was not rerun."
+        ),
         "test_metrics": test_metrics,
         "accuracy_percentage": None,
         "accuracy_note": "No project-specific regression accuracy formula was found; accuracy percentage is not reported.",
         "evaluation_note": "Test metrics are calculated directly from r2_score/MAE/RMSE using every test row, after validation-based model selection.",
-        "environment": {"python": sys.version.split()[0], "tensorflow": tf.__version__, "scikit_learn": sklearn.__version__},
+        "environment": {
+            "python": sys.version.split()[0],
+            "tensorflow": tf.__version__ if tf is not None else None,
+            "tensorflow_available": tf is not None,
+            "tensorflow_unavailable_reason": TENSORFLOW_IMPORT_ERROR,
+            "scikit_learn": sklearn.__version__,
+        },
         "feature_signal_diagnostics": {"largest_absolute_train_pearson_correlation": float(train_corr.iloc[0]), "largest_correlated_feature": str(train_corr.index[0])},
         "preprocessor_diagnostic": {
             "type": type(preprocessor).__name__,

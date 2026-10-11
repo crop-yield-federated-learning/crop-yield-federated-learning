@@ -43,13 +43,13 @@
     "37"
   ],
   "validation_selection_metric": "MAE (tie-break by RMSE)",
-  "selected_model": "Dummy_mean",
+  "selected_model": "GradientBoosting_small_depth3",
   "model_path": "models/lstm/tabular_crop_yield_best.joblib",
   "train_samples": 350,
   "validation_samples": 75,
   "test_samples": 75,
   "validation_model_metrics": {
-    "Current_LSTM_architecture_retrained": {
+    "Current_LSTM_architecture_retrained_previous_run": {
       "sample_count": 75,
       "MAE": 1385.1468186197917,
       "RMSE": 1728.4742954948263,
@@ -61,18 +61,6 @@
       "prediction_min": 2491.35546875,
       "prediction_max": 2495.476806640625
     },
-    "Dense_MLP_Keras": {
-      "sample_count": 75,
-      "MAE": 1045.9076811197917,
-      "RMSE": 1241.508268961697,
-      "R2": -0.19239447311082536,
-      "actual_mean": 3795.3710666666675,
-      "actual_std": 1136.9454796316586,
-      "prediction_mean": 4108.22119140625,
-      "prediction_std": 253.5345001220703,
-      "prediction_min": 3639.304931640625,
-      "prediction_max": 4752.3251953125
-    },
     "RandomForest_leaf1": {
       "sample_count": 75,
       "MAE": 1043.6432365333337,
@@ -81,9 +69,9 @@
       "actual_mean": 3795.3710666666675,
       "actual_std": 1136.9454796316586,
       "prediction_mean": 4051.6521528000003,
-      "prediction_std": 248.4723448326396,
-      "prediction_min": 3591.8850800000055,
-      "prediction_max": 4745.900219999999
+      "prediction_std": 248.47234483263955,
+      "prediction_min": 3591.885080000005,
+      "prediction_max": 4745.900219999998
     },
     "RandomForest_leaf3": {
       "sample_count": 75,
@@ -93,31 +81,31 @@
       "actual_mean": 3795.3710666666675,
       "actual_std": 1136.9454796316586,
       "prediction_mean": 4054.6783833637533,
-      "prediction_std": 234.7180591147913,
+      "prediction_std": 234.71805911479123,
       "prediction_min": 3615.7028344574333,
       "prediction_max": 4723.913769951441
     },
     "ExtraTrees_leaf1": {
       "sample_count": 75,
-      "MAE": 1040.116041866666,
+      "MAE": 1040.1160418666655,
       "RMSE": 1194.0267165520113,
       "R2": -0.10293218459071762,
       "actual_mean": 3795.3710666666675,
       "actual_std": 1136.9454796316586,
-      "prediction_mean": 4093.2363933333336,
+      "prediction_mean": 4093.2363933333345,
       "prediction_std": 367.72445194127863,
       "prediction_min": 3252.001980000012,
-      "prediction_max": 5144.753380000006
+      "prediction_max": 5144.7533800000065
     },
     "ExtraTrees_leaf3": {
       "sample_count": 75,
-      "MAE": 1043.3375637866668,
+      "MAE": 1043.3375637866666,
       "RMSE": 1205.0185609159373,
-      "R2": -0.12333216434492789,
+      "R2": -0.12333216434492766,
       "actual_mean": 3795.3710666666675,
       "actual_std": 1136.9454796316586,
       "prediction_mean": 4113.705226817778,
-      "prediction_std": 342.68680018332293,
+      "prediction_std": 342.6868001833231,
       "prediction_min": 3389.338312666667,
       "prediction_max": 5083.025742666668
     },
@@ -132,6 +120,18 @@
       "prediction_std": 307.99597070450665,
       "prediction_min": 3314.476812870085,
       "prediction_max": 4793.712335737842
+    },
+    "GradientBoosting_small_depth3": {
+      "sample_count": 75,
+      "MAE": 989.5354015780272,
+      "RMSE": 1155.3945298338856,
+      "R2": -0.03271702218419348,
+      "actual_mean": 3795.3710666666675,
+      "actual_std": 1136.9454796316586,
+      "prediction_mean": 4064.588876806406,
+      "prediction_std": 209.01090020610494,
+      "prediction_min": 3436.5221274393716,
+      "prediction_max": 4546.103633778607
     },
     "HistGradientBoosting": {
       "sample_count": 75,
@@ -224,9 +224,9 @@
       "R2": -0.0626838083846073,
       "actual_mean": 3795.3710666666675,
       "actual_std": 1136.9454796316586,
-      "prediction_mean": 4105.5825694104715,
-      "prediction_std": 227.3111710004955,
-      "prediction_min": 3697.2960756807306,
+      "prediction_mean": 4105.582569410471,
+      "prediction_std": 227.31117100049556,
+      "prediction_min": 3697.29607568073,
       "prediction_max": 4668.535000083842
     },
     "GradientBoosting_shallow": {
@@ -242,24 +242,27 @@
       "prediction_max": 4373.070436090088
     }
   },
+  "validation_comparison_note": "TensorFlow native runtime unavailable; any *_previous_run LSTM metric is retained for context only and was not rerun.",
   "test_metrics": {
     "sample_count": 75,
-    "MAE": 1097.3907661176472,
-    "RMSE": 1218.1706082565427,
-    "R2": -0.004099899950650299,
+    "MAE": 1088.9589166129736,
+    "RMSE": 1206.266600628435,
+    "R2": 0.01542841755439528,
     "actual_mean": 4099.091466666668,
     "actual_std": 1215.681071975369,
-    "prediction_mean": 4021.250847058823,
-    "prediction_std": 0.0,
-    "prediction_min": 4021.250847058823,
-    "prediction_max": 4021.250847058823
+    "prediction_mean": 4022.0095464685674,
+    "prediction_std": 154.919331845436,
+    "prediction_min": 3610.963871218536,
+    "prediction_max": 4445.899712141626
   },
   "accuracy_percentage": null,
   "accuracy_note": "No project-specific regression accuracy formula was found; accuracy percentage is not reported.",
   "evaluation_note": "Test metrics are calculated directly from r2_score/MAE/RMSE using every test row, after validation-based model selection.",
   "environment": {
     "python": "3.12.14",
-    "tensorflow": "2.16.1",
+    "tensorflow": null,
+    "tensorflow_available": false,
+    "tensorflow_unavailable_reason": "Could not find the DLL(s) 'msvcp140_1.dll'. TensorFlow requires that these DLLs be installed in a directory that is named in your %PATH% environment variable. You may install these DLLs by downloading \"Microsoft C++ Redistributable for Visual Studio 2015, 2017 and 2019\" for your platform from this URL: https://support.microsoft.com/help/2977003/the-latest-supported-visual-c-downloads",
     "scikit_learn": "1.5.2"
   },
   "feature_signal_diagnostics": {
