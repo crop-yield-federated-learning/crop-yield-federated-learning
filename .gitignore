@@ -17,6 +17,7 @@ data/client_data/*/*
 results/**/*
 !results/**/.gitkeep
 !results/model_metrics.json
+!results/model_summary.md
 !results/predictions_actual_vs_predicted.csv
 !results/actual_vs_predicted.png
 !results/prediction_scatter.png
